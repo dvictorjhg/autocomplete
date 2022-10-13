@@ -12,6 +12,13 @@ const servicesGenerator = (action: string): Fig.Generator => ({
   },
 });
 
+const repositoriesGenerator = (): Fig.Generator => ({
+  script: "brew tap",
+  postProcess: (out) => {
+    return out.split("\n").map((line) => ({ name: line }));
+  },
+});
+
 const formulaeGenerator: Fig.Generator = {
   script: "brew list -1",
   postProcess: function (out) {
@@ -24,6 +31,30 @@ const formulaeGenerator: Fig.Generator = {
         description: "Installed formula",
       }));
   },
+};
+
+const outdatedformulaeGenerator: Fig.Generator = {
+  script: "brew outdated -q",
+  postProcess: function (out) {
+    return out.split("\n").map((formula) => ({
+      name: formula,
+      icon: "🍺",
+      description: "Outdated formula",
+    }));
+  },
+};
+
+const generateAllInstallableItems: Fig.Generator = {
+  script:
+    "brew --repository | xargs -I% ls -1 %/Library/Taps/homebrew/homebrew-core/Formula %/Library/Taps/homebrew/homebrew-cask/Casks",
+  postProcess: (out) =>
+    [...new Set(out.split("\n"))].map((formula) => ({
+      name: formula.replace(".rb", ""),
+      description: "Formula",
+      icon: "🍺",
+      hidden: formula[0] == "/",
+      priority: formula[0] >= "0" && formula[0] <= "9" ? 0 : 51,
+    })),
 };
 
 const commonOptions: Fig.Option[] = [
@@ -51,20 +82,7 @@ const brewInfo = (name: string): Fig.Subcommand => ({
     isOptional: true,
     name: "formula",
     description: "Formula or cask to summarize",
-    generators: {
-      script:
-        "HBPATH=$(brew --repository); ls -1 $HBPATH/Library/Taps/homebrew/homebrew-core/Formula $HBPATH/Library/Taps/homebrew/homebrew-cask/Casks",
-      postProcess: (out) =>
-        [...new Set(out.split("\n"))].map((formula) => ({
-          name: formula.replace(".rb", ""),
-          description: "Formula",
-          icon: "🍺",
-          priority:
-            (formula[0] >= "0" && formula[0] <= "9") || formula[0] == "/"
-              ? 0
-              : 51,
-        })),
-    },
+    generators: generateAllInstallableItems,
   },
   options: [
     {
@@ -431,16 +449,27 @@ const completionSpec: Fig.Spec = {
     },
     {
       name: "upgrade",
-      description: "Upgrade outdated casks and outdated",
+      description:
+        "Upgrade outdated casks and outdated, unpinned formulae using the same options they were originally installed with, plus any appended brew formula options",
       options: [
+        {
+          name: ["-d", "--debug"],
+          description:
+            "If brewing fails, open an interactive debugging session with access to IRB or a shell inside the temporary build directory",
+        },
         {
           name: ["-f", "--force"],
           description:
-            "Install formulae without checking for previously installed keg-only or non-migrated versions. When installing casks",
+            "Install formulae without checking for previously installed keg-only or non-migrated versions. When installing casks, overwrite existing files (binaries and symlinks are excluded, unless originally from the same cask)",
         },
         {
           name: ["-v", "--verbose"],
           description: "Print the verification and postinstall steps",
+        },
+        {
+          name: ["-n", "--dry-run"],
+          description:
+            "Show what would be upgraded, but do not actually upgrade anything",
         },
         {
           name: ["-s", "--build-from-source"],
@@ -449,7 +478,7 @@ const completionSpec: Fig.Spec = {
         },
         {
           name: ["-i", "--interactive"],
-          description: "Download and patch formula",
+          description: "Download and patch formula, then open a shell",
         },
         { name: ["-g", "--git"], description: "Create a Git repository" },
         {
@@ -458,8 +487,9 @@ const completionSpec: Fig.Spec = {
         },
         { name: ["-h", "--help"], description: "Show this message" },
         {
-          name: "--formula,",
-          description: "Treat all named arguments as formulae",
+          name: ["--formula", "--formulae"],
+          description:
+            "Treat all named arguments as formulae. If no named arguments are specified, upgrade only outdated formulae",
         },
         {
           name: "--env",
@@ -484,7 +514,6 @@ const completionSpec: Fig.Spec = {
             suggestions: ["gcc-7", "llvm_clang", "clang"],
           },
         },
-
         {
           name: "--force-bottle",
           description:
@@ -506,6 +535,11 @@ const completionSpec: Fig.Spec = {
             "Fetch the upstream repository to detect if the HEAD installation of the formula is outdated. Otherwise, the repository's HEAD will only be checked for updates when a new stable or development version has been released",
         },
         {
+          name: "--ignore-pinned",
+          description:
+            "Set a successful exit status even if pinned formulae are not upgraded",
+        },
+        {
           name: "--keep-tmp",
           description: "Retain the temporary files created during installation",
         },
@@ -525,18 +559,21 @@ const completionSpec: Fig.Spec = {
             "Print install times for each formula at the end of the run",
         },
         {
-          name: "--cask",
-          description: "--casks Treat all named arguments as casks",
+          name: ["--cask", "--casks"],
+          description:
+            "Treat all named arguments as casks. If no named arguments are specified, upgrade only outdated casks",
         },
         {
           name: "--binaries",
           description:
             "Disable/enable linking of helper executables (default: enabled)",
+          exclusiveOn: ["--no-binaries"],
         },
         {
           name: "--no-binaries",
           description:
             "Disable/enable linking of helper executables (default: enabled)",
+          exclusiveOn: ["--binaries"],
         },
         {
           name: "--require-sha",
@@ -546,15 +583,31 @@ const completionSpec: Fig.Spec = {
           name: "--quarantine",
           description:
             "Disable/enable quarantining of downloads (default: enabled)",
+          exclusiveOn: ["--no-quarantine"],
         },
         {
           name: "--no-quarantine",
           description:
             "Disable/enable quarantining of downloads (default: enabled)",
+          exclusiveOn: ["--quarantine"],
         },
         {
           name: "--skip-cask-deps",
           description: "Skip installing cask dependencies",
+        },
+        {
+          name: "--greedy",
+          description:
+            "Also include casks with auto_updates true or version :latest",
+          exclusiveOn: ["--greedy-latest", "--greedy-auto-updates"],
+        },
+        {
+          name: "--greedy-latest",
+          description: "Also include casks with version :latest",
+        },
+        {
+          name: "--greedy-auto-updates",
+          description: "Also include casks with auto_updates true",
         },
         {
           name: "--appdir",
@@ -687,6 +740,12 @@ const completionSpec: Fig.Spec = {
             "Comma-separated list of language codes to prefer for cask installation. The first matching language is used, otherwise it reverts to the cask's default language. The default value is the language of your system",
         },
       ],
+      args: {
+        isVariadic: true,
+        isOptional: true,
+        name: "outdated_formula|outdated_cask",
+        generators: outdatedformulaeGenerator,
+      },
     },
     {
       name: "search",
@@ -740,6 +799,30 @@ const completionSpec: Fig.Spec = {
     {
       name: "config",
       description: "Show Homebrew and system configuration info",
+    },
+    {
+      name: "postinstall",
+      description: "Rerun the post install step for formula",
+      options: [
+        {
+          name: ["-d", "--debug"],
+          description: "Display any debugging information",
+        },
+        {
+          name: ["-v", "--verbose"],
+          description: "Make some output more verbose",
+        },
+        {
+          name: ["-q", "--quiet"],
+          description: "Make some output more quiet",
+        },
+        { name: ["-h", "--help"], description: "Show this message" },
+      ],
+      args: {
+        isVariadic: true,
+        name: "formula",
+        generators: formulaeGenerator,
+      },
     },
     {
       name: "install",
@@ -796,7 +879,6 @@ const completionSpec: Fig.Spec = {
             suggestions: ["gcc-7", "llvm_clang", "clang"],
           },
         },
-
         {
           name: "--force-bottle",
           description:
@@ -1003,23 +1085,97 @@ const completionSpec: Fig.Spec = {
         isVariadic: true,
         name: "formula",
         description: "Formula or cask to install",
-        generators: {
-          script:
-            "HBPATH=$(brew --repository); ls -1 $HBPATH/Library/Taps/homebrew/homebrew-core/Formula $HBPATH/Library/Taps/homebrew/homebrew-cask/Casks",
-          postProcess: function (out) {
-            return out.split("\n").map((formula) => {
-              return {
-                name: formula.replace(".rb", ""),
-                description: "Formula",
-                icon: "🍺",
-                priority:
-                  (formula[0] >= "0" && formula[0] <= "9") || formula[0] == "/"
-                    ? 0
-                    : 51,
-              };
-            });
-          },
+        generators: generateAllInstallableItems,
+      },
+    },
+    {
+      name: "reinstall",
+      description:
+        "Uninstall and then reinstall a formula or cask using the same options it was originally installed with, plus any appended options specific to a formula",
+      options: [
+        {
+          name: ["-d", "--debug"],
+          description:
+            "If brewing fails, open an interactive debugging session with access to IRB or a shell inside the temporary build directory",
         },
+        {
+          name: ["-f", "--force"],
+          description:
+            "Install formulae without checking for previously installed keg-only or non-migrated versions. When installing casks",
+        },
+        {
+          name: ["-v", "--verbose"],
+          description: "Print the verification and postinstall steps",
+        },
+        {
+          name: ["-s", "--build-from-source"],
+          description:
+            "Compile formula from source even if a bottle is provided. Dependencies will still be installed from bottles if they are available",
+        },
+        {
+          name: ["-i", "--interactive"],
+          description: "Download and patch formula",
+        },
+        { name: ["-g", "--git"], description: "Create a Git repository" },
+        {
+          name: "--formula,",
+          description: "Treat all named arguments as formulae",
+        },
+        {
+          name: "--force-bottle",
+          description:
+            "Install from a bottle if it exists for the current or newest version of macOS, even if it would not normally be used for installation",
+        },
+        {
+          name: "--keep-tmp",
+          description: "Retain the temporary files created during installation",
+        },
+        {
+          name: "--display-times",
+          description:
+            "Print install times for each formula at the end of the run",
+        },
+        {
+          name: "--cask",
+          description: "--casks Treat all named arguments as casks",
+        },
+        {
+          name: "--binaries",
+          description:
+            "Disable/enable linking of helper executables (default: enabled)",
+          exclusiveOn: ["--no-binaries"],
+        },
+        {
+          name: "--no-binaries",
+          description:
+            "Disable/enable linking of helper executables (default: enabled)",
+          exclusiveOn: ["--binaries"],
+        },
+        {
+          name: "--require-sha",
+          description: "Require all casks to have a checksum",
+        },
+        {
+          name: "--quarantine",
+          description:
+            "Disable/enable quarantining of downloads (default: enabled)",
+          exclusiveOn: ["--no-quarantine"],
+        },
+        {
+          name: "--no-quarantine",
+          description:
+            "Disable/enable quarantining of downloads (default: enabled)",
+          exclusiveOn: ["--quarantine"],
+        },
+        {
+          name: "--skip-cask-deps",
+          description: "Skip installing cask dependencies",
+        },
+      ],
+      args: {
+        isVariadic: true,
+        name: "formula",
+        generators: formulaeGenerator,
       },
     },
     {
@@ -1038,7 +1194,6 @@ const completionSpec: Fig.Spec = {
       subcommands: [
         {
           name: "install",
-
           description: "Installs the given cask",
           args: {
             name: "cask",
@@ -1071,6 +1226,7 @@ const completionSpec: Fig.Spec = {
           ],
           args: {
             isVariadic: true,
+
             generators: {
               script: "brew list -1 --cask",
               postProcess: function (out) {
@@ -1146,12 +1302,10 @@ const completionSpec: Fig.Spec = {
       subcommands: [
         {
           name: "cleanup",
-
           description: "Remove all unused services",
         },
         {
           name: "list",
-
           description: "List all services",
         },
         {
@@ -1186,7 +1340,6 @@ const completionSpec: Fig.Spec = {
         },
         {
           name: "stop",
-
           description:
             "Stop the service formula immediately and unregister it from launching at",
           options: [
@@ -1202,7 +1355,6 @@ const completionSpec: Fig.Spec = {
         },
         {
           name: "restart",
-
           description:
             "Stop (if necessary) and start the service formula immediately and register it to launch at login (or boot)",
           options: [
@@ -1281,6 +1433,37 @@ const completionSpec: Fig.Spec = {
       },
     },
     {
+      name: "untap",
+      description: "Remove a tapped formula repository",
+      args: {
+        name: "repository",
+        generators: repositoriesGenerator(),
+      },
+      options: [
+        {
+          name: ["-f", "--force"],
+          description:
+            "Untap even if formulae or casks from this tap are currently installed",
+        },
+        {
+          name: ["-d", "--debug"],
+          description: "Display any debugging information",
+        },
+        {
+          name: ["-q", "--quiet"],
+          description: "Make some output more quiet",
+        },
+        {
+          name: ["-v", "--verbose"],
+          description: "Make some output more verbose",
+        },
+        {
+          name: ["-h", "--help"],
+          description: "Show help message",
+        },
+      ],
+    },
+    {
       name: "link",
       description:
         "Symlink all of formula's installed files into Homebrew's prefix",
@@ -1337,23 +1520,7 @@ const completionSpec: Fig.Spec = {
         isOptional: true,
         name: "formula",
         description: "Formula or cask to install",
-        generators: {
-          script:
-            "HBPATH=$(brew --repository); ls -1 $HBPATH/Library/Taps/homebrew/homebrew-core/Formula $HBPATH/Library/Taps/homebrew/homebrew-cask/Casks",
-          postProcess: function (out) {
-            return out.split("\n").map((formula) => {
-              return {
-                name: formula.replace(".rb", ""),
-                description: "Formula",
-                icon: "🍺",
-                priority:
-                  (formula[0] >= "0" && formula[0] <= "9") || formula[0] == "/"
-                    ? 0
-                    : 51,
-              };
-            });
-          },
-        },
+        generators: generateAllInstallableItems,
       },
       options: [
         ...commonOptions,

@@ -78,7 +78,6 @@ const globalOptions: Fig.Option[] = [
     name: "-a",
     description: "Force rebuilding of packages that are already up-to-date",
   },
-
   {
     name: "-p",
     description: "The number of programs, such as build commands or",
@@ -88,21 +87,21 @@ const globalOptions: Fig.Option[] = [
   },
   {
     name: "-race",
-    description: `enable data race detection.
-    Supported only on linux/amd64, freebsd/amd64, darwin/amd64, windows/amd64,
-    linux/ppc64le and linux/arm64 (only for 48-bit VMA).`,
+    description: `Enable data race detection.
+Supported only on linux/amd64, freebsd/amd64, darwin/amd64, windows/amd64,
+linux/ppc64le and linux/arm64 (only for 48-bit VMA)`,
   },
   {
     name: "-msan",
-    description: `enable interoperation with memory sanitizer.
-    Supported only on linux/amd64, linux/arm64
-    and only with Clang/LLVM as the host C compiler.
-    On linux/arm64, pie build mode will be used.`,
+    description: `Enable interoperation with memory sanitizer.
+Supported only on linux/amd64, linux/arm64
+and only with Clang/LLVM as the host C compiler.
+On linux/arm64, pie build mode will be used`,
   },
   {
     name: "-work",
-    description: `print the name of the temporary work directory and
-    do not delete it when exiting.`,
+    description: `Print the name of the temporary work directory and
+do not delete it when exiting`,
   },
   {
     name: "-asmflags",
@@ -367,7 +366,7 @@ const completionSpec: Fig.Spec = {
         },
         {
           name: "-x",
-          description: "Print the commands as they are exectued",
+          description: "Print the commands as they are executed",
         },
         {
           name: "-mod",
@@ -544,7 +543,7 @@ const completionSpec: Fig.Spec = {
             },
             {
               name: "-go",
-              insertValue: "-go=",
+              requiresSeparator: true,
               description: "Set the expected Go language version",
               args: {
                 name: "version",
@@ -552,7 +551,7 @@ const completionSpec: Fig.Spec = {
             },
             {
               name: "-require",
-              insertValue: "-require=",
+              requiresSeparator: true,
               description: "Add a requirement on the given module",
               args: {
                 name: "path",
@@ -560,7 +559,7 @@ const completionSpec: Fig.Spec = {
             },
             {
               name: "-droprequire",
-              insertValue: "-droprequire=",
+              requiresSeparator: true,
               description: "Drop a requirement on the given module",
               args: {
                 name: "path",
@@ -568,7 +567,7 @@ const completionSpec: Fig.Spec = {
             },
             {
               name: "-exclude",
-              insertValue: "-exclude=",
+              requiresSeparator: true,
               description: "Add an exclusion on the given module",
               args: {
                 name: "path",
@@ -576,7 +575,7 @@ const completionSpec: Fig.Spec = {
             },
             {
               name: "-dropexclude",
-              insertValue: "-dropexclude=",
+              requiresSeparator: true,
               description: "Drop an exclusion on the given module",
               args: {
                 name: "path",
@@ -584,7 +583,7 @@ const completionSpec: Fig.Spec = {
             },
             {
               name: "-replace",
-              insertValue: "-replace=",
+              requiresSeparator: true,
               description:
                 "Add a replacement of the given module path and version pair",
               args: {
@@ -593,7 +592,7 @@ const completionSpec: Fig.Spec = {
             },
             {
               name: "-dropreplace",
-              insertValue: "-dropreplace=",
+              requiresSeparator: true,
               description:
                 "Drops a replacement of the given module path and version pair",
               args: {
@@ -602,7 +601,7 @@ const completionSpec: Fig.Spec = {
             },
             {
               name: "-retract",
-              insertValue: "-retract=",
+              requiresSeparator: true,
               description: "Add a retraction for the given version",
               args: {
                 name: "version",
@@ -610,7 +609,7 @@ const completionSpec: Fig.Spec = {
             },
             {
               name: "-dropretract",
-              insertValue: "-dropretract=",
+              requiresSeparator: true,
               description: "Drop a retraction for the given version",
               args: {
                 name: "version",
@@ -805,7 +804,7 @@ const completionSpec: Fig.Spec = {
         ...resolutionAndExecutionOptions,
         {
           name: "-vettool",
-          insertValue: "-vettool=",
+          requiresSeparator: true,
           description:
             "Select a different analysis tool with alternative or additional checks",
           args: {

@@ -175,10 +175,15 @@ const completionSpec: Fig.Spec = {
       args: {
         name: "command",
         suggestions: [
-          { name: "POST" },
           { name: "GET" },
+          { name: "HEAD" },
+          { name: "POST" },
+          { name: "PUT" },
+          { name: "DELETE" },
+          { name: "CONNECT" },
+          { name: "OPTIONS" },
+          { name: "TRACE" },
           { name: "PATCH" },
-          { name: "UPDATE" },
         ],
       },
     },
@@ -695,7 +700,7 @@ const completionSpec: Fig.Spec = {
     {
       name: "--proxy-tls13-ciphers",
       description: "List> TLS 1.3 proxy cipher suites",
-      args: { name: "ciphersuit" },
+      args: { name: "ciphersuite" },
     },
     {
       name: "--proxy-tlsauthtype",
